@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.11.35431.28
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OpenAPIModelGenerator", "src\OpenAPIModelGenerator.csproj", "{0FE55881-DF99-4C97-B4D4-97D4267AFD05}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OpenAPIModelGenerator", "src\OpenAPIModelGenerator\OpenAPIModelGenerator.csproj", "{8A94C21F-643B-4481-AF99-EC0323B2A68A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OpenAPIModelCLI", "src\OpenAPIModelCLI\OpenAPIModelCLI.csproj", "{A1E30666-34C8-4FDD-86D7-BBC67E89CA8C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,10 +13,14 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{0FE55881-DF99-4C97-B4D4-97D4267AFD05}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0FE55881-DF99-4C97-B4D4-97D4267AFD05}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0FE55881-DF99-4C97-B4D4-97D4267AFD05}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0FE55881-DF99-4C97-B4D4-97D4267AFD05}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8A94C21F-643B-4481-AF99-EC0323B2A68A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A94C21F-643B-4481-AF99-EC0323B2A68A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A94C21F-643B-4481-AF99-EC0323B2A68A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A94C21F-643B-4481-AF99-EC0323B2A68A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1E30666-34C8-4FDD-86D7-BBC67E89CA8C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1E30666-34C8-4FDD-86D7-BBC67E89CA8C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1E30666-34C8-4FDD-86D7-BBC67E89CA8C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1E30666-34C8-4FDD-86D7-BBC67E89CA8C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -4,7 +4,19 @@
 		<TargetFramework>net8.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<Version>0.1.0</Version>
+		<Authors>Will Trombly</Authors>
+		<Description>Generates C# classes from Open API Specification.</Description>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<RepositoryUrl>https://github.com/wtrombly/openapi-model-generator</RepositoryUrl>
+		<PackageTags>openapi;code-generation;json;dotnet;poco;models</PackageTags>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
 	</PropertyGroup>
+	
+	<ItemGroup>
+		<None Include="..\docs\README.md" Pack="true" PackagePath="\"/>
+	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.CodeAnalysis" Version="3.9.0 " />

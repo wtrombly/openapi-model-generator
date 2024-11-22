@@ -9,11 +9,26 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace OpenAPIModelGenerator
 {
+    /// <summary>
+    /// Generates simple C# models using open api specifications. Uses the Microsoft.OpenApi library.
+    /// </summary>
     public class ModelGenerator
     {
+        /// <summary>
+        /// The input file path for the open api spec file.
+        /// </summary>
         private readonly string _inputFilePath;
+
+        /// <summary>
+        /// The output file path for where the new .cs files should be generated.
+        /// </summary>
         private readonly string _outputFilePath;
+
+        /// <summary>
+        /// The name space for the generated .cs files.
+        /// </summary>
         private readonly string _outPutNameSpace;
+
         private readonly ILogger _logger;
 
         public ModelGenerator(ILogger<ModelGenerator> logger, string inputFilePath, string outputFilePath, string outPutNameSpace = "CodeGen")
