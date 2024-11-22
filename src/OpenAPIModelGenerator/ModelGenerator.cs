@@ -72,7 +72,7 @@ namespace OpenAPIModelGenerator
 
             try
             {
-                await WriteOutputFile(members);
+                await WriteOutputFiles(members);
             }
             catch (Exception ex)
             {
@@ -138,10 +138,10 @@ namespace OpenAPIModelGenerator
         }
 
         /// <summary>
-        /// Writes the computed data to the output file
+        /// Writes the computed data to the output directory
         /// </summary>
         /// <param name="computedData"></param>
-        private async Task WriteOutputFile(MemberDeclarationSyntax[] members)
+        private async Task WriteOutputFiles(MemberDeclarationSyntax[] members)
         {
 
             foreach (var member in members)
@@ -164,9 +164,15 @@ namespace OpenAPIModelGenerator
                         .AddMembers(ns)
                         .NormalizeWhitespace();
 
+                    // Generate a unique file name based on the class name
+                    var fileName = $"{classDeclaration.Identifier.Text}.cs";
+
+                    // Combine directory path with file name
+                    var filePath = Path.Combine(_outputFilePath, fileName);
+
                     // Write the result to the file
                     Directory.CreateDirectory(_outputFilePath);
-                    await using var streamWriter = new StreamWriter(_outputFilePath, false);
+                    await using var streamWriter = new StreamWriter(filePath, false);
                     compilationUnit.WriteTo(streamWriter);
                 }
             }

@@ -2,6 +2,7 @@
 
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
+		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 		<TargetFramework>net8.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
@@ -15,11 +16,11 @@
 		<RepositoryUrl>https://github.com/wtrombly/openapi-model-generator</RepositoryUrl>
 		<PackageTags>openapi;code-generation;json;dotnet;poco;models</PackageTags>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-		<PackageReadmeFile>CLIREADME.md</PackageReadmeFile>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<None Include="..\docs\CLIREADME.md" Pack="true" PackagePath="\" />
+		<None Include="README.md" Pack="true" PackagePath="\"/>
 	</ItemGroup>
 
 	<ItemGroup>
