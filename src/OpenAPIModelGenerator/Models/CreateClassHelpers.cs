@@ -34,7 +34,7 @@ internal class CreateClassHelpers
                                     AttributeArgument(
                                         LiteralExpression(
                                             SyntaxKind.StringLiteralExpression,
-                                            Literal(name))))))))))
+                                            Literal(property.Key))))))))))
         ).ToArray());
 
     private static string ToPascalCase(string input)
