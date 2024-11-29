@@ -17,6 +17,8 @@
 		<PackageTags>openapi;code-generation;json;dotnet;poco;models</PackageTags>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackAsTool>true</PackAsTool>
+		<ToolCommandName>openapi-gen</ToolCommandName>
 	</PropertyGroup>
 
 	<ItemGroup>
