@@ -3,40 +3,123 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.OpenApi.Models;
 using OpenAPIModelGenerator.Models.Enums;
-using System.Globalization;
-using System.Text.RegularExpressions;
-using System.Xml.Linq;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace OpenAPIModelGenerator.Models;
 
 public partial class CreateClassHelpers
 {
-
-    [GeneratedRegex(@"[a-z]")]
-    private static partial Regex LowerCase();
-    [GeneratedRegex(@"[0-9\s]")]
-    private static partial Regex NumbersAndWhiteSpace();
-    [GeneratedRegex(@"[^a-zA-Z0-9]")]
-    private static partial Regex NotAlphaNumeric();
-
+    /// <summary>
+    /// Creates a class.
+    /// </summary>
+    /// <param name="name"></param>
+    /// <param name="description"></param>
+    /// <returns></returns>
     public static ClassDeclarationSyntax CreateClass(string name)
     {
-        return ClassDeclaration(Identifier(name))
+        return ClassDeclaration(Identifier(CreateMemberOrClassName(name)))
             .AddModifiers(Token(SyntaxKind.PublicKeyword));
     }
 
-    public static PropertyDeclarationSyntax CreateProperty(string propertyName, TypeSyntax propertyType)
+    /// <summary>
+    /// Create class members.
+    /// </summary>
+    /// <param name="propertyName"></param>
+    /// <param name="propertyType"></param>
+    /// <param name="description"></param>
+    /// <returns></returns>
+    public static PropertyDeclarationSyntax CreateProperty(string propertyName, TypeSyntax propertyType, string description = "")
     {
-        return PropertyDeclaration(propertyType, Identifier(propertyName))
+
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            return PropertyDeclaration(propertyType, Identifier(propertyName))
             .AddModifiers(Token(SyntaxKind.PublicKeyword))
             .AddAccessorListAccessors(
                 AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
                     .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
                 AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
                     .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)));
+        }
+
+        var shortDescription = GetShortDescription(description);
+        var xmlComment = SyntaxFactory.TriviaList(
+             SyntaxFactory.Trivia(
+                     SyntaxFactory.DocumentationCommentTrivia(
+                         SyntaxKind.SingleLineDocumentationCommentTrivia,
+                         List<XmlNodeSyntax>(
+                             new XmlNodeSyntax[]{
+                                    XmlText()
+                                    .WithTextTokens(
+                                        TokenList(
+                                            XmlTextLiteral(
+                                                TriviaList(
+                                                    DocumentationCommentExterior("///")),
+                                                " ",
+                                                " ",
+                                                TriviaList()))),
+                                    XmlExampleElement(
+                                        SingletonList<XmlNodeSyntax>(
+                                            XmlText()
+                                            .WithTextTokens(
+                                                TokenList(
+                                                    new []{
+                                                        XmlTextLiteral(
+                                                            TriviaList(
+                                                                DocumentationCommentExterior("///")),
+                                                            " ",
+                                                            " ",
+                                                            TriviaList()),
+                                                        XmlTextLiteral(
+                                                            shortDescription,
+                                                            shortDescription),
+                                                        XmlTextLiteral(
+                                                            TriviaList(
+                                                                DocumentationCommentExterior("///")),
+                                                            " ",
+                                                            " ",
+                                                            TriviaList())}))))
+                                    .WithStartTag(
+                                        XmlElementStartTag(
+                                            XmlName(
+                                                Identifier("summary"))))
+                                    .WithEndTag(
+                                        XmlElementEndTag(
+                                            XmlName(
+                                                Identifier("summary")))),
+                                    XmlText()
+                                    .WithTextTokens(
+                                        TokenList(
+                                            XmlTextNewLine(
+                                                TriviaList(),
+                                                Environment.NewLine,
+                                                Environment.NewLine,
+                                                TriviaList())))}))));
+
+        return PropertyDeclaration(propertyType, Identifier(propertyName))
+            .AddModifiers(Token(SyntaxKind.PublicKeyword))
+            .AddAccessorListAccessors(
+                AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+                AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
+                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)))
+            .WithLeadingTrivia(xmlComment);
     }
 
+    public static string GetShortDescription(string description)
+    {
+        description = description.Replace("\n", "");
+        description = description.Replace("\r", "");
+        description = description.Replace("\t", "");
+        return !string.IsNullOrEmpty(description) ? $"{description.Split('.').First()}.".Trim() : "";
+    }
+
+    /// <summary>
+    /// Uses the array of attributes to add to the class properties.
+    /// </summary>
+    /// <param name="property"></param>
+    /// <param name="attributes"></param>
+    /// <returns></returns>
     public static PropertyDeclarationSyntax AddAttributes(PropertyDeclarationSyntax property, params (string attributeName, string? attributeValue)[] attributes)
     {
         foreach (var (attributeName, attributeValue) in attributes)
@@ -68,24 +151,32 @@ public partial class CreateClassHelpers
                         ))));
             }
         }
-
         return property;
     }
 
+    /// <summary>
+    /// Creates the class with needed members from the <see cref="OpenApiSchema"/>
+    /// If attributes have been included in the method call, these will also be
+    /// attached to class members.
+    /// </summary>
+    /// <param name="name"></param>
+    /// <param name="openAPISchema"></param>
+    /// <param name="attributes"></param>
+    /// <returns></returns>
     public static ClassDeclarationSyntax CreateClassWithMembers(
         string name,
-        OpenApiSchema classType,
+        OpenApiSchema openAPISchema,
         (string attributeName, string attributeValue)[]? attributes = null)
     {
         var classDeclaration = CreateClass(name);
 
-        var properties = classType.Properties.Select(property =>
+        var properties = openAPISchema.Properties.Select(property =>
         {
             var updatedAttributes = PrepareAttributes(attributes, property);
-            var propertyName = CreateMemberOrClassName(property.Key);
+            var memberName = CreateMemberOrClassName(property.Key);
             var propertyType = GetDataType(property.Value);
 
-            var propertyDeclaration = CreateProperty(propertyName, propertyType);
+            var propertyDeclaration = CreateProperty(memberName, propertyType, property.Value.Description);
 
             if (updatedAttributes is not null)
             {
@@ -98,6 +189,14 @@ public partial class CreateClassHelpers
         return classDeclaration.AddMembers(properties);
     }
 
+    /// <summary>
+    /// Prepares attributes array for various attributes that need values that can be generated.
+    /// In the case of Json related attributes the property.Key is used to populate appropriate 
+    /// values for json property names.
+    /// </summary>
+    /// <param name="attributes"></param>
+    /// <param name="property"></param>
+    /// <returns></returns>
     private static (string attributeName, string attributeValue)[]? PrepareAttributes(
         (string name, string value)[]? attributes,
         KeyValuePair<string, OpenApiSchema> property)
@@ -120,17 +219,17 @@ public partial class CreateClassHelpers
     }
 
     /// <summary>
-    /// 
+    /// Creates from a string a valid C# class or member name in Pascal Case.
     /// </summary>
-    /// <param name="propertyName"></param>
+    /// <param name="memberName"></param>
     /// <returns></returns>
-    public static string CreateMemberOrClassName(string propertyName)
+    public static string CreateMemberOrClassName(string memberName)
     {
-        if (string.IsNullOrWhiteSpace(propertyName)) return string.Empty;
+        if (string.IsNullOrWhiteSpace(memberName)) return string.Empty;
 
-        propertyName = NotAlphaNumeric().Replace(propertyName, " ");
+        memberName = RegexLibrary.NotAlphaNumeric().Replace(memberName, " ");
 
-        var words = propertyName.ToLower().Split([' '], StringSplitOptions.RemoveEmptyEntries);
+        var words = memberName.ToLower().Split([' '], StringSplitOptions.RemoveEmptyEntries);
 
         for (int i = 0; i < words.Length; i++)
         {
@@ -140,19 +239,19 @@ public partial class CreateClassHelpers
         var result = string.Join(string.Empty, words);
 
         // Check and remove numbers in beginning of name
-        var matches = NumbersAndWhiteSpace().Matches(result);
+        var matches = RegexLibrary.NumbersAndWhiteSpace().Matches(result);
         do
         {
             if (matches.Count > 0 && matches.First().Index == 0)
             {
                 result = result.Substring(1, result.Length - 1);
             }
-            matches = NumbersAndWhiteSpace().Matches(result);
+            matches = RegexLibrary.NumbersAndWhiteSpace().Matches(result);
         }
         while (matches.Count > 0 && matches.First().Index == 0);
 
         // Check that first char is upper case
-        var zeroIndexLowerCaseMatch = LowerCase().Match(result);
+        var zeroIndexLowerCaseMatch = RegexLibrary.LowerCase().Match(result);
         if (zeroIndexLowerCaseMatch.Success && zeroIndexLowerCaseMatch.Index == 0)
         {
             result = result.Replace(result[0], char.ToUpper(result[0]));
@@ -161,17 +260,22 @@ public partial class CreateClassHelpers
         return result;
     }
 
+    /// <summary>
+    /// Gets the appropriate C# data type for the OpenApiSchema property.
+    /// </summary>
+    /// <param name="propertyType"></param>
+    /// <returns></returns>
     public static TypeSyntax GetDataType(OpenApiSchema propertyType)
     {
-        if (propertyType.Type.Contains(OpenAPIValueTypes.Number.GetStringValue()) || propertyType.Type.Contains(OpenAPIValueTypes.Integer.GetStringValue()))
+        if (propertyType.Type.Contains(OpenValueTypes.Number.GetStringValue()) || propertyType.Type.Contains(OpenValueTypes.Integer.GetStringValue()))
         {
             return propertyType.Nullable ? NullableType(PredefinedType(Token(CheckNumberFormat(propertyType.Format)))) : PredefinedType(Token(CheckNumberFormat(propertyType.Format)));
         }
-        if (propertyType.Type.Contains(OpenAPIValueTypes.Boolean.GetStringValue()))
+        if (propertyType.Type.Contains(OpenValueTypes.Boolean.GetStringValue()))
         {
             return propertyType.Nullable ? NullableType(PredefinedType(Token(SyntaxKind.BoolKeyword))) : PredefinedType(Token(SyntaxKind.BoolKeyword));
         }
-        if (string.Equals(propertyType.Type, OpenAPIValueTypes.Object.GetStringValue()))
+        if (string.Equals(propertyType.Type, OpenValueTypes.Object.GetStringValue()))
         {
             if (propertyType.Reference is not null)
             {
@@ -179,28 +283,28 @@ public partial class CreateClassHelpers
             }
             else
             {
-                return IdentifierName(OpenAPIValueTypes.Object.GetStringValue());
+                return IdentifierName(OpenValueTypes.Object.GetStringValue());
             }
         }
-        if (string.Equals(propertyType.Type, OpenAPIValueTypes.Array.GetStringValue()))
+        if (string.Equals(propertyType.Type, OpenValueTypes.Array.GetStringValue()))
         {
             if (propertyType.Items.Reference is null || propertyType.Items.Type is null)
             {
                 return propertyType.Nullable ?
-                                    NullableType(ArrayType(IdentifierName(OpenAPIValueTypes.Object.GetStringValue()))
+                                    NullableType(ArrayType(IdentifierName(OpenValueTypes.Object.GetStringValue()))
                                     .WithRankSpecifiers(
                                     SingletonList(
                                         ArrayRankSpecifier(
                                             SingletonSeparatedList<ExpressionSyntax>(
                                                 OmittedArraySizeExpression()))))) :
-                                    ArrayType(IdentifierName(OpenAPIValueTypes.Object.GetStringValue()))
+                                    ArrayType(IdentifierName(OpenValueTypes.Object.GetStringValue()))
                                     .WithRankSpecifiers(
                                     SingletonList(
                                         ArrayRankSpecifier(
                                             SingletonSeparatedList<ExpressionSyntax>(
                                                 OmittedArraySizeExpression()))));
             }
-            if (string.Equals(propertyType.Items.Type, OpenAPIValueTypes.Object.GetStringValue()))
+            if (string.Equals(propertyType.Items.Type, OpenValueTypes.Object.GetStringValue()))
             {
                 return propertyType.Nullable ?
                     NullableType(ArrayType(IdentifierName(propertyType.Items.Reference.Id))
@@ -231,25 +335,25 @@ public partial class CreateClassHelpers
     /// </returns>
     public static SyntaxKind CheckNumberFormat(string format)
     {
-        if (string.Equals(format, "int32", StringComparison.CurrentCultureIgnoreCase))
+        if (string.Equals(format, OpenFormatTypes.Int32.GetStringValue(), StringComparison.CurrentCultureIgnoreCase))
         {
             return SyntaxKind.IntKeyword;
         }
-        if (string.Equals(format, "float", StringComparison.CurrentCultureIgnoreCase))
+        if (string.Equals(format, OpenFormatTypes.Float.GetStringValue(), StringComparison.CurrentCultureIgnoreCase))
         {
             return SyntaxKind.FloatKeyword;
         }
-        if (string.Equals(format, "double", StringComparison.CurrentCultureIgnoreCase))
+        if (string.Equals(format, OpenFormatTypes.Double.GetStringValue(), StringComparison.CurrentCultureIgnoreCase))
         {
             return SyntaxKind.DoubleKeyword;
         }
-        if (string.Equals(format, "decimal", StringComparison.CurrentCultureIgnoreCase))
+        if (string.Equals(format, OpenFormatTypes.Decimal.GetStringValue(), StringComparison.CurrentCultureIgnoreCase))
         {
             return SyntaxKind.DecimalKeyword;
         }
-        if (string.Equals(format, "long", StringComparison.CurrentCultureIgnoreCase) ||
+        if (string.Equals(format, OpenFormatTypes.Long.GetStringValue(), StringComparison.CurrentCultureIgnoreCase) ||
             string.Equals(format, "int", StringComparison.CurrentCultureIgnoreCase) ||
-            string.Equals(format, "int64", StringComparison.CurrentCultureIgnoreCase))
+            string.Equals(format, OpenFormatTypes.Int64.GetStringValue(), StringComparison.CurrentCultureIgnoreCase))
         {
             return SyntaxKind.LongKeyword;
         }

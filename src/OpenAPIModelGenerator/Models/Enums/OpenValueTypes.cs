@@ -1,10 +1,13 @@
 ﻿namespace OpenAPIModelGenerator.Models.Enums
 {
-    public enum OpenAPIValueTypes
+    /// <summary>
+    /// Enumeration of Open API value types.
+    /// </summary>
+    public enum OpenValueTypes
     {
-        [StringValue("int")]
+        [StringValue("integer")]
         Integer,
-        [StringValue("float")]
+        [StringValue("number")]
         Number,
         [StringValue("null")]
         Null,

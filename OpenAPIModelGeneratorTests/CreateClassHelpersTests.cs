@@ -30,5 +30,12 @@ namespace OpenAPIModelGeneratorTests
             var result = CreateClassHelpers.CreateMemberOrClassName(data.testString);
             Assert.That(result, Is.EqualTo(data.expectedResult));
         }
+
+        [Test]
+        public void GetShortDescription_ReceiveExpectedString()
+        {
+            var result = CreateClassHelpers.GetShortDescription("Unique reference ID provided for promotional credits\n");
+            Assert.That(result, Is.EqualTo("Unique reference ID provided for promotional credits."));
+        }
     }
 }

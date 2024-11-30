@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "OpenAPIModelCLI": {
+      "commandName": "Project",
+      "commandLineArgs": "-i C:\\code-gen\\chargebee_api_v2_pc_v2_spec.json\r\n-o C:\\code-gen\\"
+    }
+  }
+}
