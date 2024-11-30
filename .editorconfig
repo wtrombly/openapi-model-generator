@@ -1,0 +1,3 @@
+[*.cs]
+# Enforce file-scoped namespaces
+csharp_style_namespace_declarations = file_scoped:suggestion
