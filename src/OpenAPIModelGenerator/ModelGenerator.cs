@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using Microsoft.OpenApi.Readers;
 using OpenAPIModelGenerator.Models;
+using System.Linq;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace OpenAPIModelGenerator
@@ -111,7 +112,7 @@ namespace OpenAPIModelGenerator
 
             try
             {
-                await WriteOutputFiles(members);
+                await WriteOutputFiles(members, _usings);
             }
             catch (Exception ex)
             {
@@ -201,7 +202,7 @@ namespace OpenAPIModelGenerator
         /// Writes the computed data to the output directory
         /// </summary>
         /// <param name="computedData"></param>
-        private async Task WriteOutputFiles(MemberDeclarationSyntax[] members, string usings)
+        private async Task WriteOutputFiles(MemberDeclarationSyntax[] members, string? usings)
         {
             foreach (var member in members)
             {
@@ -212,22 +213,24 @@ namespace OpenAPIModelGenerator
                         .AddMembers(member);
 
                     var usingsDirectives = new List<UsingDirectiveSyntax>();
-                    var usingsArray = usings.Split(',');
-                    foreach (var us in usingsArray)
+                    if (!string.IsNullOrWhiteSpace(usings))
                     {
-                        var identifierNamesList = us.Split(".").ToList();
+                        var usingsArray = usings.Split(',');
+                        foreach (var us in usingsArray)
+                        {
+                            var identifierNamesList = us.Split(".").ToList();
+                            // Generate the using directive
+                            var usingDirective = UsingDirective(
+                                QualifiedName(
+                                    IdentifierName(identifierNamesList.First()),
+                                    IdentifierName(string.Join(".", identifierNamesList.GetRange(1, identifierNamesList.Count - 1)))));
+                            usingsDirectives.Add(usingDirective);
+                        }
                     }
-
-
-                    // Generate the using directive
-                    var usingDirective = UsingDirective(
-                        QualifiedName(
-                            IdentifierName("Newtonsoft"),
-                            IdentifierName("Json")));
 
                     // Combine the using directive and namespace into a single compilation unit
                     var compilationUnit = CompilationUnit()
-                        .AddUsings(usingDirective)
+                        .AddUsings([.. usingsDirectives])
                         .AddMembers(ns)
                         .NormalizeWhitespace();
 
