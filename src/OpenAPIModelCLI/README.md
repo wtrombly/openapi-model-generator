@@ -1,7 +1,7 @@
 
 # OpenAPI Model Generator CLI
 
-[![NuGet Version](https://img.shields.io/nuget/v/openapi-gen.svg?style=flat-square)](https://www.nuget.org/packages/OpenAPIModelCLI/)
+[![NuGet Version](https://img.shields.io/nuget/v/OpenAPIModelGenerator.svg?style=flat-square)](https://www.nuget.org/packages/OpenAPIModelCLI/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **OpenAPI Model Generator CLI** is a lightweight command-line interface for generating plain C# models (POCOs) from OpenAPI specifications. It leverages the **OpenAPIModelGenerator** library to streamline development workflows.
