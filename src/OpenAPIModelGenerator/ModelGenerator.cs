@@ -29,9 +29,31 @@ namespace OpenAPIModelGenerator
         /// </summary>
         private readonly string _outPutNameSpace;
 
+        /// <summary>
+        /// The collection of attributes and values for those attributes.
+        /// </summary>
+        private readonly string? _attributes;
+
+        /// <summary>
+        /// The collection of using directives.
+        /// </summary>
+        private readonly string? _usings;
+
+        /// <summary>
+        /// Denotes whether xml comments are required.
+        /// </summary>
+        private readonly bool _documentation;
+
         private readonly ILogger _logger;
 
-        public ModelGenerator(ILogger<ModelGenerator> logger, string inputFilePath, string outputFilePath, string outPutNameSpace = "CodeGen")
+        public ModelGenerator(
+            ILogger<ModelGenerator> logger,
+            string inputFilePath,
+            string outputFilePath,
+            string outPutNameSpace = "CodeGen",
+            string? attributes = null,
+            string? usings = null,
+            bool documentation = false)
         {
             if (string.IsNullOrWhiteSpace(inputFilePath))
                 throw new ArgumentException("Input file path cannot be null or empty.", nameof(inputFilePath));
@@ -41,6 +63,9 @@ namespace OpenAPIModelGenerator
             _inputFilePath = inputFilePath;
             _outputFilePath = outputFilePath;
             _outPutNameSpace = outPutNameSpace;
+            _attributes = attributes;
+            _usings = usings;
+            _documentation = documentation;
             _logger = logger;
         }
 
@@ -61,9 +86,23 @@ namespace OpenAPIModelGenerator
                 throw new Exception("Failed to read openApiDocument", ex);
             }
 
+
+            (string, string)[] parsedAttributes = [];
+            if (_attributes is not null)
+            {
+                try
+                {
+                    parsedAttributes = ParseAttributes(_attributes);
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception("Failed to parse attributes.", ex);
+                }
+            }
+
             try
             {
-                members = GenerateModels(document);
+                members = GenerateModels(document, parsedAttributes, _documentation);
             }
             catch (Exception ex)
             {
@@ -78,6 +117,24 @@ namespace OpenAPIModelGenerator
             {
                 throw new Exception("Failed to write to files", ex);
             }
+        }
+
+        /// <summary>
+        /// Splits the csv attributes string into a string[] item into attribute name and attribute value.
+        /// </summary>
+        /// <param name="attributes"></param>
+        /// <returns>
+        /// Returns an array of string tuples with name and value respectively.
+        /// </returns>
+        public static (string, string)[] ParseAttributes(string attributes)
+        {
+            var splitAttributes = attributes.Split(',');
+
+            return splitAttributes
+                .Select(a => a.Split('='))
+                .Where(parts => parts.Length == 2)
+                .Select(parts => (Key: parts[0], Value: parts[1]))
+                .ToArray();
         }
 
         /// <summary>
@@ -132,11 +189,11 @@ namespace OpenAPIModelGenerator
         /// <param name="openApiDocument"></param>
         /// <returns></returns>
         /// <exception cref="InvalidOperationException"></exception>
-        private static MemberDeclarationSyntax[] GenerateModels(OpenApiDocument openApiDocument)
+        private static MemberDeclarationSyntax[] GenerateModels(OpenApiDocument openApiDocument, (string, string)[] parsedAttributes, bool _documentation)
         {
             return openApiDocument.Components.Schemas?.Select(
                 t => CreateClassHelpers.CreateClassWithMembers(
-                    t.Key, t.Value, [("JsonProperty","")])).ToArray() ?? 
+                    t.Key, t.Value, _documentation, [.. parsedAttributes])).ToArray() ??
                     Array.Empty<MemberDeclarationSyntax>();
         }
 
@@ -144,9 +201,8 @@ namespace OpenAPIModelGenerator
         /// Writes the computed data to the output directory
         /// </summary>
         /// <param name="computedData"></param>
-        private async Task WriteOutputFiles(MemberDeclarationSyntax[] members)
+        private async Task WriteOutputFiles(MemberDeclarationSyntax[] members, string usings)
         {
-
             foreach (var member in members)
             {
                 if (member is ClassDeclarationSyntax classDeclaration)
@@ -154,6 +210,14 @@ namespace OpenAPIModelGenerator
                     // Create the namespace and add the class
                     var ns = NamespaceDeclaration(ParseName(_outPutNameSpace))
                         .AddMembers(member);
+
+                    var usingsDirectives = new List<UsingDirectiveSyntax>();
+                    var usingsArray = usings.Split(',');
+                    foreach (var us in usingsArray)
+                    {
+                        var identifierNamesList = us.Split(".").ToList();
+                    }
+
 
                     // Generate the using directive
                     var usingDirective = UsingDirective(

@@ -28,86 +28,24 @@ public partial class CreateClassHelpers
     /// <param name="propertyType"></param>
     /// <param name="description"></param>
     /// <returns></returns>
-    public static PropertyDeclarationSyntax CreateProperty(string propertyName, TypeSyntax propertyType, string description = "")
+    public static PropertyDeclarationSyntax CreateProperty(string propertyName, TypeSyntax propertyType)
     {
-
-        if (string.IsNullOrWhiteSpace(description))
-        {
-            return PropertyDeclaration(propertyType, Identifier(propertyName))
-            .AddModifiers(Token(SyntaxKind.PublicKeyword))
-            .AddAccessorListAccessors(
-                AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
-                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
-                AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
-                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)));
-        }
-
-        var shortDescription = GetShortDescription(description);
-        var xmlComment = SyntaxFactory.TriviaList(
-             SyntaxFactory.Trivia(
-                     SyntaxFactory.DocumentationCommentTrivia(
-                         SyntaxKind.SingleLineDocumentationCommentTrivia,
-                         List<XmlNodeSyntax>(
-                             new XmlNodeSyntax[]{
-                                    XmlText()
-                                    .WithTextTokens(
-                                        TokenList(
-                                            XmlTextLiteral(
-                                                TriviaList(
-                                                    DocumentationCommentExterior("///")),
-                                                " ",
-                                                " ",
-                                                TriviaList()))),
-                                    XmlExampleElement(
-                                        SingletonList<XmlNodeSyntax>(
-                                            XmlText()
-                                            .WithTextTokens(
-                                                TokenList(
-                                                    new []{
-                                                        XmlTextLiteral(
-                                                            TriviaList(
-                                                                DocumentationCommentExterior("///")),
-                                                            " ",
-                                                            " ",
-                                                            TriviaList()),
-                                                        XmlTextLiteral(
-                                                            shortDescription,
-                                                            shortDescription),
-                                                        XmlTextLiteral(
-                                                            TriviaList(
-                                                                DocumentationCommentExterior("///")),
-                                                            " ",
-                                                            " ",
-                                                            TriviaList())}))))
-                                    .WithStartTag(
-                                        XmlElementStartTag(
-                                            XmlName(
-                                                Identifier("summary"))))
-                                    .WithEndTag(
-                                        XmlElementEndTag(
-                                            XmlName(
-                                                Identifier("summary")))),
-                                    XmlText()
-                                    .WithTextTokens(
-                                        TokenList(
-                                            XmlTextNewLine(
-                                                TriviaList(),
-                                                Environment.NewLine,
-                                                Environment.NewLine,
-                                                TriviaList())))}))));
 
         return PropertyDeclaration(propertyType, Identifier(propertyName))
-            .AddModifiers(Token(SyntaxKind.PublicKeyword))
-            .AddAccessorListAccessors(
-                AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
-                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
-                AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
-                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)))
-            .WithLeadingTrivia(xmlComment);
+        .AddModifiers(Token(SyntaxKind.PublicKeyword))
+        .AddAccessorListAccessors(
+            AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+            AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
+                .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)));
     }
 
-    public static string GetShortDescription(string description)
+    public static string GetShortDescription(string? description)
     {
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            return "";
+        }
         description = description.Replace("\n", "");
         description = description.Replace("\r", "");
         description = description.Replace("\t", "");
@@ -166,6 +104,7 @@ public partial class CreateClassHelpers
     public static ClassDeclarationSyntax CreateClassWithMembers(
         string name,
         OpenApiSchema openAPISchema,
+        bool _documentation,
         (string attributeName, string attributeValue)[]? attributes = null)
     {
         var classDeclaration = CreateClass(name);
@@ -176,17 +115,84 @@ public partial class CreateClassHelpers
             var memberName = CreateMemberOrClassName(property.Key);
             var propertyType = GetDataType(property.Value);
 
-            var propertyDeclaration = CreateProperty(memberName, propertyType, property.Value.Description);
-
+            var propertyDeclaration = CreateProperty(memberName, propertyType);
             if (updatedAttributes is not null)
             {
                 propertyDeclaration = AddAttributes(propertyDeclaration, attributes!);
+            }
+
+            if (_documentation)
+            {
+                var xmlComments = CreateXmlComments(property);
+                propertyDeclaration = AddXmlComments(propertyDeclaration, xmlComments);
             }
 
             return propertyDeclaration;
         }).ToArray();
 
         return classDeclaration.AddMembers(properties);
+    }
+
+    private static PropertyDeclarationSyntax AddXmlComments(PropertyDeclarationSyntax propertyDeclaration, SyntaxTriviaList xmlComments)
+    {
+        return propertyDeclaration.WithLeadingTrivia(xmlComments);
+    }
+
+    private static SyntaxTriviaList CreateXmlComments(KeyValuePair<string, OpenApiSchema> property)
+    {
+        var shortDescription = GetShortDescription(property.Value.Description);
+        return SyntaxFactory.TriviaList(
+             SyntaxFactory.Trivia(
+                     SyntaxFactory.DocumentationCommentTrivia(
+                         SyntaxKind.SingleLineDocumentationCommentTrivia,
+                         List<XmlNodeSyntax>(
+                             new XmlNodeSyntax[]{
+                                    XmlText()
+                                    .WithTextTokens(
+                                        TokenList(
+                                            XmlTextLiteral(
+                                                TriviaList(
+                                                    DocumentationCommentExterior("///")),
+                                                " ",
+                                                " ",
+                                                TriviaList()))),
+                                    XmlExampleElement(
+                                        SingletonList<XmlNodeSyntax>(
+                                            XmlText()
+                                            .WithTextTokens(
+                                                TokenList(
+                                                    new []{
+                                                        XmlTextLiteral(
+                                                            TriviaList(
+                                                                DocumentationCommentExterior("///")),
+                                                            " ",
+                                                            " ",
+                                                            TriviaList()),
+                                                        XmlTextLiteral(
+                                                            shortDescription,
+                                                            shortDescription),
+                                                        XmlTextLiteral(
+                                                            TriviaList(
+                                                                DocumentationCommentExterior("///")),
+                                                            " ",
+                                                            " ",
+                                                            TriviaList())}))))
+                                    .WithStartTag(
+                                        XmlElementStartTag(
+                                            XmlName(
+                                                Identifier("summary"))))
+                                    .WithEndTag(
+                                        XmlElementEndTag(
+                                            XmlName(
+                                                Identifier("summary")))),
+                                    XmlText()
+                                    .WithTextTokens(
+                                        TokenList(
+                                            XmlTextNewLine(
+                                                TriviaList(),
+                                                Environment.NewLine,
+                                                Environment.NewLine,
+                                                TriviaList())))}))));
     }
 
     /// <summary>

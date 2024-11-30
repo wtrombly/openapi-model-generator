@@ -9,13 +9,22 @@ namespace OpenAPIModelGeneratorCLI
         public class Options
         {
             [Option('i', "input", Required = true, HelpText = "Path to the OpenAPI spec file.")]
-            public string InputFilePath { get; set; }
+            public required string InputFilePath { get; set; }
 
             [Option('o', "output", Required = true, HelpText = "Path to the output directory.")]
-            public string OutputDirectory { get; set; }
+            public required string OutputDirectory { get; set; }
 
             [Option('n', "namespace", Default = "CodeGen", HelpText = "Namespace for the generated C# classes.")]
-            public string Namespace { get; set; }
+            public string Namespace { get; set; } = "CodeGen";
+
+            [Option('a', "attributes", Required = false, HelpText = "Array of attributes with attribute values")]
+            public string? Attributes { get; set; } = null;
+
+            [Option('u', "usings", Required = false, HelpText = "Array of usings sources")]
+            public string? Usings { get; set; } = null;
+
+            [Option('x', "xml", Required = false, HelpText = "Does the generated code require xml comments")]
+            public bool Documentation { get; set; } = false;
         }
 
         static async Task Main(string[] args)
@@ -42,7 +51,10 @@ namespace OpenAPIModelGeneratorCLI
                     logger,
                     options.InputFilePath,
                     options.OutputDirectory,
-                    options.Namespace);
+                    options.Namespace,
+                    options.Attributes,
+                    options.Usings,
+                    options.Documentation);
 
                 await generator.Execute();
 
