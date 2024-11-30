@@ -43,12 +43,15 @@ openapi-gen -i <InputFilePath> -o <OutputDirectory> -n <Namespace>
 
 ### Options
 
-| Option                 | Description                                 | Required | Default      |
-|------------------------|---------------------------------------------|----------|--------------|
-| `-i`, `--input`        | Path to the OpenAPI specification file      | Yes      | N/A          |
-| `-o`, `--output`       | Directory for the generated C# files        | Yes      | N/A          |
-| `-n`, `--namespace`    | Namespace for the generated files           | No       | `CodeGen`    |
-| `-h`, `--help`         | Displays the help message                   | No       | N/A          |
+| Option                  | Description                                              | Required | Default   |
+| ----------------------- | -------------------------------------------------------- | -------- | --------- |
+| `-i`, `--input`         | Path to the OpenAPI specification file                   | Yes      | N/A       |
+| `-o`, `--output`        | Directory for the generated C# files                     | Yes      | N/A       |
+| `-n`, `--namespace`     | Namespace for the generated files                        | No       | `CodeGen` |
+| `-a`, `--attributes`    | Specify attributes for generated class properties        | No       | `null`    |
+| `-u`, `--usings`        | Specify usings for generated files                       | No       | `null`    |
+| `-n`, `--documentation` | Require xml documentation generation on class properties | No       | `false`   |
+| `-h`, `--help`          | Displays the help message                                | No       | N/A       |
 
 ---
 
@@ -58,6 +61,23 @@ openapi-gen -i <InputFilePath> -o <OutputDirectory> -n <Namespace>
 
 ```sh
 openapi-gen -i ./openapi.yaml -o ./GeneratedModels -n MyCustomNamespace
+```
+
+#### Generate Models with NewtonSoft Attributes & Documentation
+
+```sh
+openapi-gen -i ./openapi.yaml -o ./GeneratedModels -n MyCustomNamespace -a JsonProperty= -u Newtonsoft.Json -n true
+```
+##### *Note
+Attributes values are not required for Newtonsoft.Json.JsonProperty and System.Text.Json.Serialization.JsonPropertyName. Values will be generated based on open api spec.
+
+##### *Note
+Attributes that do not require a value in the attributes string should have nothing after the equals sign. This includes no white space.
+
+#### Generate Models with Comma Separated Inputs
+
+```sh
+openapi-gen -i ./openapi.yaml -o ./GeneratedModels -n MyCustomNamespace -a JsonProperty=,CustomAttribute=Include -u Newtonsoft.Json,System.Text.Json.Serializaton -n true
 ```
 
 #### Generate Models with Default Namespace

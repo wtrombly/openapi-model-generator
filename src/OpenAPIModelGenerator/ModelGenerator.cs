@@ -7,174 +7,242 @@ using Microsoft.OpenApi.Readers;
 using OpenAPIModelGenerator.Models;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
-namespace OpenAPIModelGenerator
+namespace OpenAPIModelGenerator;
+
+/// <summary>
+/// Generates simple C# models using open api specifications. Uses the Microsoft.OpenApi library.
+/// </summary>
+public class ModelGenerator
 {
     /// <summary>
-    /// Generates simple C# models using open api specifications. Uses the Microsoft.OpenApi library.
+    /// The input file path for the open api spec file.
     /// </summary>
-    public class ModelGenerator
+    private readonly string _inputFilePath;
+
+    /// <summary>
+    /// The output file path for where the new .cs files should be generated.
+    /// </summary>
+    private readonly string _outputFilePath;
+
+    /// <summary>
+    /// The name space for the generated .cs files.
+    /// </summary>
+    private readonly string _outPutNameSpace;
+
+    /// <summary>
+    /// The collection of attributes and values for those attributes.
+    /// </summary>
+    private readonly string? _attributes;
+
+    /// <summary>
+    /// The collection of using directives.
+    /// </summary>
+    private readonly string? _usings;
+
+    /// <summary>
+    /// Denotes whether xml comments are required.
+    /// </summary>
+    private readonly bool _documentation;
+
+    private readonly ILogger _logger;
+
+    public ModelGenerator(
+        ILogger<ModelGenerator> logger,
+        string inputFilePath,
+        string outputFilePath,
+        string outPutNameSpace = "CodeGen",
+        string? attributes = null,
+        string? usings = null,
+        bool documentation = false)
     {
-        /// <summary>
-        /// The input file path for the open api spec file.
-        /// </summary>
-        private readonly string _inputFilePath;
+        if (string.IsNullOrWhiteSpace(inputFilePath))
+            throw new ArgumentException("Input file path cannot be null or empty.", nameof(inputFilePath));
+        if (string.IsNullOrWhiteSpace(outputFilePath))
+            throw new ArgumentException("Output file path cannot be null or empty.", nameof(outputFilePath));
 
-        /// <summary>
-        /// The output file path for where the new .cs files should be generated.
-        /// </summary>
-        private readonly string _outputFilePath;
+        _inputFilePath = inputFilePath;
+        _outputFilePath = outputFilePath;
+        _outPutNameSpace = outPutNameSpace;
+        _attributes = attributes;
+        _usings = usings;
+        _documentation = documentation;
+        _logger = logger;
+    }
 
-        /// <summary>
-        /// The name space for the generated .cs files.
-        /// </summary>
-        private readonly string _outPutNameSpace;
-
-        private readonly ILogger _logger;
-
-        public ModelGenerator(ILogger<ModelGenerator> logger, string inputFilePath, string outputFilePath, string outPutNameSpace = "CodeGen")
+    /// <summary>
+    /// Method to execute the entire workflow
+    /// </summary>
+    /// <returns></returns>
+    public async Task Execute()
+    {
+        MemberDeclarationSyntax[] members;
+        OpenApiDocument document;
+        try
         {
-            if (string.IsNullOrWhiteSpace(inputFilePath))
-                throw new ArgumentException("Input file path cannot be null or empty.", nameof(inputFilePath));
-            if (string.IsNullOrWhiteSpace(outputFilePath))
-                throw new ArgumentException("Output file path cannot be null or empty.", nameof(outputFilePath));
-
-            _inputFilePath = inputFilePath;
-            _outputFilePath = outputFilePath;
-            _outPutNameSpace = outPutNameSpace;
-            _logger = logger;
+            document = await ReadInputFileAsync();
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("Failed to read openApiDocument", ex);
         }
 
-        /// <summary>
-        /// Method to execute the entire workflow
-        /// </summary>
-        /// <returns></returns>
-        public async Task Execute()
+
+        (string, string)[] parsedAttributes = [];
+        if (_attributes is not null)
         {
-            MemberDeclarationSyntax[] members;
-            OpenApiDocument document;
             try
             {
-                document = await ReadInputFileAsync();
+                parsedAttributes = ParseAttributes(_attributes);
             }
             catch (Exception ex)
             {
-                throw new Exception("Failed to read openApiDocument", ex);
-            }
-
-            try
-            {
-                members = Compute(document);
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Failed to create classes", ex);
-            }
-
-            try
-            {
-                await WriteOutputFiles(members);
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Failed to write to files", ex);
+                throw new Exception("Failed to parse attributes.", ex);
             }
         }
 
-        /// <summary>
-        /// Reads and the input file and logs information.
-        /// </summary>
-        /// <returns></returns>
-        /// <exception cref="FileNotFoundException"></exception>
-        private async Task<OpenApiDocument> ReadInputFileAsync()
+        try
         {
-            if (!File.Exists(_inputFilePath))
-                throw new FileNotFoundException($"Input file not found at {_inputFilePath}.");
+            members = GenerateModels(document, parsedAttributes, _documentation);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("Failed to create classes", ex);
+        }
 
-            OpenApiDocument document;
-            try
+        try
+        {
+            await WriteOutputFiles(members, _usings);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("Failed to write to files", ex);
+        }
+    }
+
+    /// <summary>
+    /// Splits the csv attributes string into a string[] item into attribute name and attribute value.
+    /// </summary>
+    /// <param name="attributes"></param>
+    /// <returns>
+    /// Returns an array of string tuples with name and value respectively.
+    /// </returns>
+    public static (string, string)[] ParseAttributes(string attributes)
+    {
+        var splitAttributes = attributes.Split(',');
+
+        return splitAttributes
+            .Select(a => a.Split('='))
+            .Where(parts => parts.Length == 2)
+            .Select(parts => (Key: parts[0], Value: parts[1]))
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Reads and the input file and logs information.
+    /// </summary>
+    /// <returns></returns>
+    /// <exception cref="FileNotFoundException"></exception>
+    private async Task<OpenApiDocument> ReadInputFileAsync()
+    {
+        if (!File.Exists(_inputFilePath))
+            throw new FileNotFoundException($"Input file not found at {_inputFilePath}.");
+
+        OpenApiDocument document;
+        try
+        {
+            await using var fileStream = File.OpenRead(_inputFilePath);
+            document = new OpenApiStreamReader().Read(fileStream, out var diagnostics);
+
+            _logger.LogInformation("Document read with the following Spec Version: {SpecVersion}",
+                diagnostics.SpecificationVersion.ToString());
+
+            _logger.LogWarning("Warnings Count: {WarningsCount}. This may disrupt code generation.",
+                diagnostics.Warnings.Count);
+
+            _logger.LogError("Errors Count: {ErrorsCount}. This may disrupt code generation.",
+                diagnostics.Errors.Count);
+
+
+            if (diagnostics != null)
             {
-                await using var fileStream = File.OpenRead(_inputFilePath);
-                document = new OpenApiStreamReader().Read(fileStream, out var diagnostics);
-
-                _logger.LogInformation("Document read with the following Spec Version: {SpecVersion}",
-                    diagnostics.SpecificationVersion.ToString());
-
-                _logger.LogWarning("Warnings Count: {WarningsCount}. This may disrupt code generation.",
-                    diagnostics.Warnings.Count);
-
-                _logger.LogError("Errors Count: {ErrorsCount}. This may disrupt code generation.",
-                    diagnostics.Errors.Count);
-
-
-                if (diagnostics != null)
+                foreach (var diagnosticItem in diagnostics.Warnings)
                 {
-                    foreach (var diagnosticItem in diagnostics.Warnings)
-                    {
-                        _logger.LogWarning("Open API Warning: {diagnosticItem.Message}", diagnosticItem.Message);
-                    }
-                    foreach (var diagnosticItem in diagnostics.Errors)
-                    {
-                        _logger.LogWarning("Open API Error: {diagnosticItem.Message}", diagnosticItem.Message);
-                    }
+                    _logger.LogWarning("Open API Warning: {diagnosticItem.Message}", diagnosticItem.Message);
+                }
+                foreach (var diagnosticItem in diagnostics.Errors)
+                {
+                    _logger.LogWarning("Open API Error: {diagnosticItem.Message}", diagnosticItem.Message);
                 }
             }
-            catch (Exception ex) 
-            {
-                throw new Exception("Failed to read input file.", ex);
-            }
-
-            return document;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("Failed to read input file.", ex);
         }
 
-        /// <summary>
-        /// Performs computations or logic on the input data
-        /// </summary>
-        /// <param name="openApiDocument"></param>
-        /// <returns></returns>
-        /// <exception cref="InvalidOperationException"></exception>
-        private static MemberDeclarationSyntax[] Compute(OpenApiDocument openApiDocument)
-        {
-            return openApiDocument.Components.Schemas?.Select(t => CreateClassHelpers.CreateClass(t.Key, t.Value)).ToArray() ?? Array.Empty<MemberDeclarationSyntax>();
-        }
+        return document;
+    }
 
-        /// <summary>
-        /// Writes the computed data to the output directory
-        /// </summary>
-        /// <param name="computedData"></param>
-        private async Task WriteOutputFiles(MemberDeclarationSyntax[] members)
-        {
+    /// <summary>
+    /// Generates models based on open-api document component schemas.
+    /// </summary>
+    /// <param name="openApiDocument"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
+    private static MemberDeclarationSyntax[] GenerateModels(OpenApiDocument openApiDocument, (string, string)[] parsedAttributes, bool _documentation)
+    {
+        return openApiDocument.Components.Schemas?.Select(
+            t => CreateClassHelpers.CreateClassWithMembers(
+                t.Key, t.Value, _documentation, [.. parsedAttributes])).ToArray() ??
+                Array.Empty<MemberDeclarationSyntax>();
+    }
 
-            foreach (var member in members)
+    /// <summary>
+    /// Writes the computed data to the output directory
+    /// </summary>
+    /// <param name="computedData"></param>
+    private async Task WriteOutputFiles(MemberDeclarationSyntax[] members, string? usings)
+    {
+        foreach (var member in members)
+        {
+            if (member is ClassDeclarationSyntax classDeclaration)
             {
-                if (member is ClassDeclarationSyntax classDeclaration)
+                // Create the namespace and add the class
+                var ns = NamespaceDeclaration(ParseName(_outPutNameSpace))
+                    .AddMembers(member);
+
+                var usingsDirectives = new List<UsingDirectiveSyntax>();
+                if (!string.IsNullOrWhiteSpace(usings))
                 {
-                    // Create the namespace and add the class
-                    var ns = NamespaceDeclaration(ParseName(_outPutNameSpace))
-                        .AddMembers(member);
-
-                    // Generate the using directive
-                    var usingDirective = UsingDirective(
-                        QualifiedName(
-                            IdentifierName("Newtonsoft"),
-                            IdentifierName("Json")));
-
-                    // Combine the using directive and namespace into a single compilation unit
-                    var compilationUnit = CompilationUnit()
-                        .AddUsings(usingDirective)
-                        .AddMembers(ns)
-                        .NormalizeWhitespace();
-
-                    // Generate a unique file name based on the class name
-                    var fileName = $"{classDeclaration.Identifier.Text}.cs";
-
-                    // Combine directory path with file name
-                    var filePath = Path.Combine(_outputFilePath, fileName);
-
-                    // Write the result to the file
-                    Directory.CreateDirectory(_outputFilePath);
-                    await using var streamWriter = new StreamWriter(filePath, false);
-                    compilationUnit.WriteTo(streamWriter);
+                    var usingsArray = usings.Split(',');
+                    foreach (var us in usingsArray)
+                    {
+                        var identifierNamesList = us.Split(".").ToList();
+                        // Generate the using directive
+                        var usingDirective = UsingDirective(
+                            QualifiedName(
+                                IdentifierName(identifierNamesList.First()),
+                                IdentifierName(string.Join(".", identifierNamesList.GetRange(1, identifierNamesList.Count - 1)))));
+                        usingsDirectives.Add(usingDirective);
+                    }
                 }
+
+                // Combine the using directive and namespace into a single compilation unit
+                var compilationUnit = CompilationUnit()
+                    .AddUsings([.. usingsDirectives])
+                    .AddMembers(ns)
+                    .NormalizeWhitespace();
+
+                // Generate a unique file name based on the class name
+                var fileName = $"{classDeclaration.Identifier.Text}.cs";
+
+                // Combine directory path with file name
+                var filePath = Path.Combine(_outputFilePath, fileName);
+
+                // Write the result to the file
+                Directory.CreateDirectory(_outputFilePath);
+                await using var streamWriter = new StreamWriter(filePath, false);
+                compilationUnit.WriteTo(streamWriter);
             }
         }
     }
